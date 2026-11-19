@@ -1,0 +1,5 @@
+transaction_id,account_id,amount,country,hour
+T1,A1,120,DE,10
+T2,A2,12000,DE,2
+T3,A1,350,FR,14
+T4,A3,-30,DE,9

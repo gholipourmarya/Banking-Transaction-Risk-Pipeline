@@ -1,0 +1,12 @@
+[
+  {
+    "row": {
+      "transaction_id": "T4",
+      "account_id": "A3",
+      "amount": "-30",
+      "country": "DE",
+      "hour": "9"
+    },
+    "reason": "Invalid row: amount must be finite and nonnegative"
+  }
+]

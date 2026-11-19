@@ -1,0 +1,9 @@
+name: banking_risk
+version: "1.0.0"
+config-version: 2
+profile: banking_risk
+model-paths: ["models"]
+
+models:
+  banking_risk:
+    +materialized: table

@@ -1,0 +1,290 @@
+{
+  "uid": "banking-risk",
+  "title": "Banking Transaction Risk",
+  "description": "Rule-based risk flags on accepted synthetic banking transactions.",
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "utc",
+  "time": {
+    "from": "now-7d/d",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Accepted transactions",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select coalesce(sum(transactions), 0) as \"Transactions\" from analytics.daily_risk where $__timeFilter(day_utc)"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Flagged transactions",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select coalesce(sum(flagged_transactions), 0) as \"Flagged\" from analytics.daily_risk where $__timeFilter(day_utc)"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Risk flag rate",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select coalesce(round(100.0 * sum(flagged_transactions) / nullif(sum(transactions), 0), 2), 0) as \"Flag rate\" from analytics.daily_risk where $__timeFilter(day_utc)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Daily accepted and flagged transactions",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "select day_utc as \"time\", transactions as \"Accepted\", flagged_transactions as \"Flagged\" from analytics.daily_risk where $__timeFilter(day_utc) order by day_utc"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Flagged accounts across all data",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "select account_id as \"Account\", transactions as \"Transactions\", flagged_transactions as \"Flagged\", velocity_flagged_transactions as \"Velocity flagged\", avg_risk_score as \"Average score\", late_transactions as \"Late\", flagged_amount as \"Flagged amount\", last_seen_at as \"Last seen\" from analytics.account_risk where flagged_transactions > 0 order by avg_risk_score desc, flagged_amount desc, account_id limit 20"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Kafka backlog by partition",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "select measured_at as \"time\", lag, kafka_topic || '/' || kafka_partition::text as metric from ingest.kafka_lag where $__timeFilter(measured_at) order by measured_at"
+        }
+      ],
+      "description": "Kafka end offset minus the next offset committed to PostgreSQL."
+    },
+    {
+      "id": 7,
+      "title": "Processing delay (p95, ms)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "select processed_at as \"time\", p95_processing_delay_ms as \"Batch p95\" from ingest.stream_batches where $__timeFilter(processed_at) order by processed_at"
+        }
+      ],
+      "description": "95th percentile of the time from Kafka timestamp to the database write, per batch."
+    },
+    {
+      "id": 8,
+      "title": "Rejected and late transactions",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "select date_trunc('minute', processed_at) as \"time\", sum(rejected_records) as \"Rejected\", sum(late_records) as \"Late for velocity\" from ingest.stream_batches where $__timeFilter(processed_at) group by 1 order by 1"
+        }
+      ],
+      "description": "Late valid transactions retain their amount and overnight risk scores."
+    },
+    {
+      "id": 9,
+      "title": "Pipeline failures and database retries",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "banking-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "banking-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "select ts as \"time\", sum(failures) as \"Failures\", sum(retries) as \"Database retries\" from (select date_trunc('minute', occurred_at) as ts, count(*) as failures, 0 as retries from ingest.stream_errors where $__timeFilter(occurred_at) group by 1 union all select date_trunc('minute', processed_at), 0, sum(db_retries) from ingest.stream_batches where $__timeFilter(processed_at) group by 1) events group by 1 order by 1"
+        }
+      ],
+      "description": "Errors logged to PostgreSQL and transient write retries recorded when a batch succeeds."
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+x-kafka-client: &kafka-client
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_TOPIC: banking.transactions
+
+x-postgres-client: &postgres-client
+  PGHOST: postgres
+  PGPORT: "5432"
+  PGDATABASE: banking
+  PGUSER: banking
+  PGPASSWORD: ${POSTGRES_PASSWORD:-banking-local}
+
+services:
+  kafka:
+    image: apache/kafka:3.9.2
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9092"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: banking
+      POSTGRES_USER: banking
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-banking-local}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana-local}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U banking -d banking"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-banking.sql:ro
+
+  producer:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: producer
+    environment: *kafka-client
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  spark:
+    profiles: ["jobs"]
+    restart: on-failure
+    build:
+      context: .
+      target: spark
+    environment:
+      <<: [*kafka-client, *postgres-client]
+      SPARK_CHECKPOINT: /state/checkpoint
+      SPARK_CONTINUOUS: "${SPARK_CONTINUOUS:-0}"
+      SPARK_LOCAL_HOSTNAME: localhost
+      TZ: UTC
+    volumes:
+      - spark-state:/state
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  dbt:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: dbt
+    environment: *postgres-client
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:12.4.0
+    environment:
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana-local}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/banking/dashboards:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  kafka-data:
+  postgres-data:
+  spark-state:
+  grafana-data:

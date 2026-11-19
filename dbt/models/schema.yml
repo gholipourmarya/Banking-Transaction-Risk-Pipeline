@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: ingest
+    tables:
+      - name: transactions
+        columns:
+          - name: transaction_id
+            data_tests: [not_null, unique]
+          - name: account_id
+            data_tests: [not_null]
+          - name: event_at
+            data_tests: [not_null]
+          - name: risk_score
+            data_tests: [not_null]
+      - name: rejected_transactions
+        columns:
+          - name: rejection_reason
+            data_tests: [not_null]
+
+models:
+  - name: daily_risk
+    description: Risk metrics for accepted transactions by UTC ingestion day.
+    columns:
+      - name: day_utc
+        data_tests: [not_null, unique]
+  - name: account_risk
+    description: All-time risk metrics for each account with accepted transactions.
+    columns:
+      - name: account_id
+        data_tests: [not_null, unique]

@@ -1,0 +1,3 @@
+{"transaction_id": "T1", "account_id": "A1", "amount": "120", "country": "DE", "hour": "10", "value": 120.0, "flag": 0}
+{"transaction_id": "T2", "account_id": "A2", "amount": "12000", "country": "DE", "hour": "2", "value": 12000.0, "flag": 1}
+{"transaction_id": "T3", "account_id": "A1", "amount": "350", "country": "FR", "hour": "14", "value": 350.0, "flag": 0}
